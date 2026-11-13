@@ -1,0 +1,44 @@
+import { Request, Response } from 'express';
+import { createGuestUser } from './auth.service';
+import { AuthGuestRequest, ApiResponse } from '../../types';
+
+export async function createGuest(req: Request, res: Response) {
+  try {
+    const { name, avatarColor } = req.body as AuthGuestRequest;
+
+    if (!name || !name.trim()) {
+      return res.status(400).json({
+        success: false,
+        error: { code: 'INVALID_NAME', message: 'Nama tidak boleh kosong' },
+      } as ApiResponse<never>);
+    }
+
+    if (name.trim().length > 12) {
+      return res.status(400).json({
+        success: false,
+        error: { code: 'NAME_TOO_LONG', message: 'Nama maksimal 12 karakter' },
+      } as ApiResponse<never>);
+    }
+
+    const validColors: AuthGuestRequest['avatarColor'][] = ['pink', 'blue', 'orange', 'yellow'];
+    if (!validColors.includes(avatarColor)) {
+      return res.status(400).json({
+        success: false,
+        error: { code: 'INVALID_COLOR', message: 'Warna avatar tidak valid' },
+      } as ApiResponse<never>);
+    }
+
+    const user = await createGuestUser({ name: name.trim(), avatarColor });
+
+    return res.status(201).json({
+      success: true,
+      data: user,
+    } as ApiResponse<typeof user>);
+  } catch (error) {
+    console.error('Create guest error:', error);
+    return res.status(500).json({
+      success: false,
+      error: { code: 'INTERNAL_ERROR', message: 'Gagal membuat user tamu' },
+    } as ApiResponse<never>);
+  }
+}

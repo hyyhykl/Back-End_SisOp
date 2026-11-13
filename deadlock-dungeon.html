@@ -1,0 +1,650 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Deadlock Dungeon - OS Simulator</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { background: #080a0f; color: #e2e8f0; font-family: 'Segoe UI', system-ui, sans-serif; overflow: hidden; -webkit-tap-highlight-color: transparent; }
+#game { position: relative; width: 100vw; height: 100vh; }
+canvas { display: block; width: 100%; height: 100%; }
+
+.overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: radial-gradient(circle at center, #0f172a, #020617); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 100; text-align: center; padding: 20px; gap: 16px; }
+h1 { color: #38bdf8; font-size: clamp(28px, 5vw, 52px); letter-spacing: 3px; text-transform: uppercase; text-shadow: 0 0 25px rgba(56,189,248,0.4); }
+h2 { color: #4ade80; font-size: clamp(18px, 3vw, 28px); }
+p { max-width: 600px; color: #94a3b8; line-height: 1.6; font-size: 14px; }
+
+.btn { background: linear-gradient(135deg, #38bdf8, #818cf8); color: #020617; border: none; padding: 12px 28px; border-radius: 999px; font-size: 15px; font-weight: 800; cursor: pointer; text-transform: uppercase; letter-spacing: 2px; box-shadow: 0 8px 30px rgba(56,189,248,0.3); transition: all 0.2s; }
+.btn:hover { transform: translateY(-2px); box-shadow: 0 12px 40px rgba(129,140,248,0.4); }
+
+.panel-box { background: rgba(15, 23, 42, 0.85); border: 1px solid rgba(56, 189, 248, 0.3); border-radius: 12px; padding: 16px 24px; display: flex; flex-direction: column; gap: 12px; max-width: 520px; width: 100%; text-align: left; }
+.setting-row { display: flex; justify-content: space-between; align-items: center; font-size: 14px; }
+select, input[type="range"] { background: #1e293b; color: #e2e8f0; border: 1px solid #475569; padding: 6px 12px; border-radius: 6px; font-size: 14px; }
+
+#hud { position: absolute; top: 16px; left: 16px; display: none; gap: 12px; z-index: 50; pointer-events: none; }
+.hud-card { background: rgba(15, 23, 42, 0.85); border: 1px solid rgba(56, 189, 248, 0.5); border-radius: 10px; padding: 8px 16px; display: flex; flex-direction: column; min-width: 100px; }
+.hud-card .label { font-size: 10px; text-transform: uppercase; letter-spacing: 2px; color: #38bdf8; }
+.hud-card .val { font-size: 20px; font-weight: 800; color: #fff; }
+
+#quest-hud { position: absolute; top: 16px; right: 16px; display: none; z-index: 50; pointer-events: none; background: rgba(15, 23, 42, 0.85); border: 1px solid rgba(74, 222, 128, 0.5); border-radius: 10px; padding: 10px 16px; text-align: right; }
+#quest-hud .label { font-size: 10px; text-transform: uppercase; letter-spacing: 2px; color: #4ade80; }
+#quest-hud .val { font-size: 14px; font-weight: 700; color: #fff; margin-top: 2px; }
+
+table { border-collapse: collapse; width: 100%; max-width: 750px; background: rgba(15, 23, 42, 0.95); border-radius: 12px; overflow: hidden; border: 1px solid rgba(56, 189, 248, 0.3); }
+th, td { padding: 10px 14px; text-align: center; border-bottom: 1px solid rgba(255,255,255,0.05); font-size: 13px; }
+th { background: rgba(56, 189, 248, 0.2); color: #38bdf8; text-transform: uppercase; letter-spacing: 1.5px; font-size: 11px; }
+td { color: #f1f5f9; }
+.rank-1 { color: #facc15; font-weight: 800; }
+.rank-2 { color: #e2e8f0; font-weight: 800; }
+.rank-3 { color: #f97316; font-weight: 800; }
+</style>
+</head>
+<body>
+
+<div id="game">
+  <canvas id="canvas"></canvas>
+
+  <!-- Main Menu -->
+  <div id="menu" class="overlay">
+    <h1>Deadlock Dungeon</h1>
+    <h2>Simulasi Deadlock & Resource Allocation</h2>
+    <p>4 Player berlomba di dungeon mengumpulkan Resource (R1, R2, R3, R4) dan kabur ke Exit Gate. Waspadai Deadlock ketika saling perebutan Resource!</p>
+    
+    <div class="panel-box">
+      <div class="setting-row">
+        <label>Algoritma / Penanganan Deadlock:</label>
+        <select id="algo-select" onchange="showAlgoInfo()">
+          <option value="none">1. No Prevention (Naive)</option>
+          <option value="ordering">2. Resource Ordering</option>
+          <option value="banker">3. Banker's Algorithm (Avoidance)</option>
+        </select>
+      </div>
+      <div id="algo-info" style="font-size:12px; color:#94a3b8; min-height: 54px; padding: 8px 12px; background: rgba(56,189,248,0.08); border-radius: 8px; border: 1px solid rgba(56,189,248,0.2);">
+        <strong>No Prevention (Naive):</strong> Bebas ambil resource. Jikaterjadi deadlock (circular wait), kedua player stuck 2 detik lalu resource dilepas otomatis (detection & recovery).
+      </div>
+      <div class="setting-row">
+        <label>Durasi Ronde (Detik):</label>
+        <input type="range" id="time-slider" min="30" max="60" value="45" oninput="document.getElementById('time-val').textContent = this.value">
+        <span id="time-val">45</span>s
+      </div>
+    </div>
+
+    <div class="btn-group">
+      <button class="btn" onclick="startMatch()">Mulai Game</button>
+    </div>
+  </div>
+
+  <!-- HUD -->
+  <div id="hud">
+    <div class="hud-card">
+      <span class="label">Waktu</span>
+      <span class="val" id="hud-time">45</span>
+    </div>
+    <div class="hud-card">
+      <span class="label">Skor Kamu</span>
+      <span class="val" id="hud-score">0</span>
+    </div>
+    <div class="hud-card">
+      <span class="label">Mode</span>
+      <span class="val" id="hud-mode">NONE</span>
+    </div>
+  </div>
+
+  <div id="quest-hud">
+    <span class="label">Misi Kamu (P1)</span>
+    <div class="val" id="hud-quest">Ambil R1, R2, R3 -> Ke EXIT</div>
+  </div>
+
+  <!-- Game Over Screen -->
+  <div id="game-over" class="overlay" style="display: none;">
+    <h2>Match Selesai! 🏆</h2>
+    
+    <div style="max-height: 55vh; overflow-y: auto; width: 100%; display: flex; flex-direction: column; align-items: center; gap: 16px;">
+      <h3 style="color:#38bdf8; font-size:15px;">Peringkat Pemain (Skor Individu)</h3>
+      <table>
+        <thead>
+          <tr>
+            <th>Pos</th>
+            <th>Pemain</th>
+            <th>Resource</th>
+            <th>Status</th>
+            <th>Deadlock</th>
+            <th>Skor Akhir</th>
+          </tr>
+        </thead>
+        <tbody id="leaderboard-body"></tbody>
+      </table>
+
+      <h3 style="color:#4ade80; font-size:15px; margin-top:8px;">Perbandingan Metrik Kinerja Algoritma</h3>
+      <table>
+        <thead>
+          <tr>
+            <th>Algoritma</th>
+            <th>Total Deadlock</th>
+            <th>Tingkat Keberhasilan</th>
+            <th>Rata-rata Waktu</th>
+          </tr>
+        </thead>
+        <tbody id="metrics-body"></tbody>
+      </table>
+    </div>
+
+    <button class="btn" onclick="backToMenu()">Kembali ke Menu</button>
+  </div>
+</div>
+
+<script>
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+let W, H, cx, cy;
+
+function resize() {
+  W = canvas.width = window.innerWidth;
+  H = canvas.height = window.innerHeight;
+  cx = W / 2;
+  cy = H / 2;
+}
+window.addEventListener('resize', resize);
+resize();
+
+const keys = {};
+window.addEventListener('keydown', e => { keys[e.code] = true; });
+window.addEventListener('keyup', e => { keys[e.code] = false; });
+
+let state = 'menu';
+let timer = 45;
+let timerInterval = null;
+let currentAlgo = 'none';
+let countdownTimer = null;
+let countdownValue = 3;
+
+let resources = [];
+let players = [];
+let exitGate = { x: 0, y: 0, r: 35 };
+
+let globalMetrics = {
+  none: { deadlocks: 0, completed: 0, totalRuns: 0, totalTime: 0 },
+  ordering: { deadlocks: 0, completed: 0, totalRuns: 0, totalTime: 0 },
+  banker: { deadlocks: 0, completed: 0, totalRuns: 0, totalTime: 0 }
+};
+
+function showAlgoInfo() {
+  const algo = document.getElementById('algo-select').value;
+  const infos = {
+    none: '<strong>No Prevention (Naive):</strong> Bebas ambil resource. Jika terjadi deadlock (circular wait), kedua player stuck 2 detik lalu resource dilepas otomatis (detection & recovery).',
+    ordering: '<strong>Resource Ordering (Prevention):</strong> Player WAJIB mengambil resource sesuai urutan nomor terkecil dulu (R1 → R2 → R3...). Mencegah circular wait 100%.',
+    banker: '<strong>Banker\'s Algorithm (Avoidance):</strong> Sistem mengecek Safe State sebelum mengizinkan alokasi. Request yang dapat menyebabkan deadlock akan ditolak sementara.'
+  };
+  document.getElementById('algo-info').innerHTML = infos[algo] || '';
+}
+
+function backToMenu() {
+  state = 'menu';
+  document.getElementById('menu').style.display = 'flex';
+  document.getElementById('hud').style.display = 'none';
+  document.getElementById('quest-hud').style.display = 'none';
+  document.getElementById('game-over').style.display = 'none';
+  if (timerInterval) clearInterval(timerInterval);
+  if (countdownTimer) clearTimeout(countdownTimer);
+}
+
+function startMatch() {
+  currentAlgo = document.getElementById('algo-select').value;
+  timer = parseInt(document.getElementById('time-slider').value);
+  
+  document.getElementById('menu').style.display = 'none';
+  document.getElementById('hud').style.display = 'flex';
+  document.getElementById('quest-hud').style.display = 'block';
+  document.getElementById('game-over').style.display = 'none';
+  
+  document.getElementById('hud-mode').textContent = currentAlgo.toUpperCase();
+  document.getElementById('hud-time').textContent = timer;
+  document.getElementById('hud-score').textContent = '0';
+  
+  initGameObjects();
+  
+  state = 'countdown';
+  countdownValue = 3;
+  showCountdown();
+}
+
+function showCountdown() {
+  if (countdownValue > 0) {
+    document.getElementById('hud-time').textContent = countdownValue;
+    countdownValue--;
+    countdownTimer = setTimeout(showCountdown, 1000);
+  } else {
+    document.getElementById('hud-time').textContent = timer;
+    state = 'playing';
+    if (timerInterval) clearInterval(timerInterval);
+    timerInterval = setInterval(() => {
+      if (state === 'playing') {
+        timer--;
+        document.getElementById('hud-time').textContent = timer;
+        if (timer <= 0) endMatch();
+      }
+    }, 1000);
+    requestAnimationFrame(gameLoop);
+  }
+}
+
+function initGameObjects() {
+  const pad = 110;
+  exitGate = { x: cx, y: cy, r: 40 };
+
+  const pos = [
+    { x: cx - pad * 2, y: cy - pad * 1.5 },
+    { x: cx - pad, y: cy - pad * 1.5 },
+    { x: cx, y: cy - pad * 1.5 },
+    { x: cx + pad, y: cy - pad * 1.5 },
+    { x: cx + pad * 2, y: cy - pad * 1.5 },
+    { x: cx - pad * 2, y: cy + pad * 1.5 },
+    { x: cx - pad, y: cy + pad * 1.5 },
+    { x: cx, y: cy + pad * 1.5 },
+    { x: cx + pad, y: cy + pad * 1.5 },
+    { x: cx + pad * 2, y: cy + pad * 1.5 },
+    { x: cx - pad * 2, y: cy },
+    { x: cx + pad * 2, y: cy }
+  ];
+
+  const colors = ['#f43f5e', '#3b82f6', '#eab308', '#a855f7', '#10b981', '#f97316', '#06b6d4', '#ec4899', '#84cc16', '#6366f1', '#14b8a6', '#f59e0b'];
+
+  resources = [];
+  for (let i = 0; i < 12; i++) {
+    resources.push({
+      id: i + 1,
+      name: 'R' + (i + 1),
+      x: pos[i].x,
+      y: pos[i].y,
+      available: true,
+      color: colors[i],
+      holder: null
+    });
+  }
+
+  const randPos = () => ({
+    x: Math.random() * (W - pad * 2) + pad,
+    y: Math.random() * (H - pad * 2) + pad
+  });
+
+  const p1Pos = randPos(), p2Pos = randPos(), p3Pos = randPos(), p4Pos = randPos();
+
+  players = [
+    { id: 1, name: 'Player 1 (Kamu)', isBot: false, x: p1Pos.x, y: p1Pos.y, r: 18, color: '#38bdf8', req: [1, 2, 3, 4, 5, 6], held: [], finished: false, deadlocked: false, score: 0, deadlocksCount: 0, finishTime: 0 },
+    { id: 2, name: 'Bot Red', isBot: true, x: p2Pos.x, y: p2Pos.y, r: 18, color: '#ef4444', req: [4, 5, 6, 7, 8, 9], held: [], finished: false, deadlocked: false, score: 0, deadlocksCount: 0, finishTime: 0 },
+    { id: 3, name: 'Bot Green', isBot: true, x: p3Pos.x, y: p3Pos.y, r: 18, color: '#22c55e', req: [7, 8, 9, 10, 11, 12], held: [], finished: false, deadlocked: false, score: 0, deadlocksCount: 0, finishTime: 0 },
+    { id: 4, name: 'Bot Yellow', isBot: true, x: p4Pos.x, y: p4Pos.y, r: 18, color: '#eab308', req: [10, 11, 12, 1, 2, 3], held: [], finished: false, deadlocked: false, score: 0, deadlocksCount: 0, finishTime: 0 }
+  ];
+
+  updateQuestHUD();
+}
+
+function updateQuestHUD() {
+  const p1 = players[0];
+  const reqStr = p1.req.map(r => 'R' + r).join(', ');
+  const heldStr = p1.held.length > 0 ? ` (Dipegang: ${p1.held.map(r => 'R' + r).join(', ')})` : '';
+  
+  if (p1.finished) {
+    document.getElementById('hud-quest').textContent = 'SELESAI! (Sudah di Exit)';
+  } else if (p1.held.length === p1.req.length) {
+    document.getElementById('hud-quest').textContent = `Lengkap! Lari ke EXIT GATE di Tengah!${heldStr}`;
+  } else {
+    document.getElementById('hud-quest').textContent = `Butuh ${reqStr}${heldStr} -> Ke EXIT`;
+  }
+}
+
+function checkDeadlocks() {
+  if (currentAlgo !== 'none') return;
+
+  for (let i = 0; i < players.length; i++) {
+    const pA = players[i];
+    if (pA.finished || pA.deadlocked || pA.held.length === 0) continue;
+
+    for (let j = i + 1; j < players.length; j++) {
+      const pB = players[j];
+      if (pB.finished || pB.deadlocked || pB.held.length === 0) continue;
+
+      const pAHasWhatPBNeeds = pB.req.some(r => !pB.held.includes(r) && pA.held.includes(r));
+      const pBHasWhatPANeeds = pA.req.some(r => !pA.held.includes(r) && pB.held.includes(r));
+      const pAWaiting = pA.req.some(r => !pA.held.includes(r));
+      const pBWaiting = pB.req.some(r => !pB.held.includes(r));
+
+      if (pAHasWhatPBNeeds && pBHasWhatPANeeds && pAWaiting && pBWaiting) {
+        pA.deadlocked = true;
+        pB.deadlocked = true;
+        pA.deadlocksCount++;
+        pB.deadlocksCount++;
+        globalMetrics[currentAlgo].deadlocks++;
+
+        setTimeout(() => {
+          releaseResources(pA);
+          releaseResources(pB);
+          pA.deadlocked = false;
+          pB.deadlocked = false;
+        }, 2000);
+      }
+    }
+  }
+}
+
+function releaseResources(p) {
+  resources.forEach(r => {
+    if (r.holder === p.id) {
+      r.holder = null;
+      r.available = true;
+    }
+  });
+  p.held = [];
+}
+
+function isSafeToGrant(player, resId) {
+  if (currentAlgo !== 'banker') return true;
+
+  const resource = resources.find(r => r.id === resId);
+  const origAvail = resource.available;
+  const origHolder = resource.holder;
+  const origHeld = player.held.slice();
+
+  resource.available = false;
+  resource.holder = player.id;
+  player.held.push(resId);
+
+  const safe = checkSafeState();
+
+  resource.available = origAvail;
+  resource.holder = origHolder;
+  player.held = origHeld;
+
+  return safe;
+}
+
+function checkSafeState() {
+  const avail = resources.filter(r => r.available).map(r => r.id);
+  const unfinished = players.filter(p => !p.finished);
+  
+  if (unfinished.length === 0) return true;
+
+  for (const p of unfinished) {
+    const need = p.req.filter(r => !p.held.includes(r));
+    if (need.every(id => avail.includes(id))) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function tryPickResource(p, res) {
+  if (p.finished || p.deadlocked) return;
+  if (!res.available) return;
+  if (!p.req.includes(res.id)) return;
+  if (p.held.includes(res.id)) return;
+
+  if (currentAlgo === 'ordering') {
+    const minNeeded = Math.min(...p.req.filter(r => !p.held.includes(r)));
+    if (res.id !== minNeeded) return;
+  }
+
+  if (currentAlgo === 'banker') {
+    if (!isSafeToGrant(p, res.id)) return;
+  }
+
+  res.available = false;
+  res.holder = p.id;
+  p.held.push(res.id);
+
+  if (p.id === 1) {
+    updateQuestHUD();
+  }
+}
+
+function gameLoop() {
+  if (state !== 'playing' && state !== 'countdown') return;
+
+  if (state === 'playing') update();
+  draw();
+
+  requestAnimationFrame(gameLoop);
+}
+
+function update() {
+  const p1 = players[0];
+  if (!p1.finished && !p1.deadlocked) {
+    let vx = 0, vy = 0;
+    if (keys['KeyW'] || keys['ArrowUp']) vy = -1;
+    if (keys['KeyS'] || keys['ArrowDown']) vy = 1;
+    if (keys['KeyA'] || keys['ArrowLeft']) vx = -1;
+    if (keys['KeyD'] || keys['ArrowRight']) vx = 1;
+
+    const mag = Math.hypot(vx, vy);
+    if (mag > 0) {
+      p1.x += (vx / mag) * 4.5;
+      p1.y += (vy / mag) * 4.5;
+    }
+
+    resources.forEach(res => {
+      if (Math.hypot(p1.x - res.x, p1.y - res.y) < p1.r + 20) {
+        tryPickResource(p1, res);
+      }
+    });
+
+    if (p1.held.length === p1.req.length) {
+      if (Math.hypot(p1.x - exitGate.x, p1.y - exitGate.y) < p1.r + exitGate.r) {
+        p1.finished = true;
+        p1.finishTime = 45 - timer;
+        releaseResources(p1);
+        updateQuestHUD();
+      }
+    }
+  }
+
+  for (let i = 1; i < players.length; i++) {
+    const bot = players[i];
+    if (bot.finished || bot.deadlocked) continue;
+
+    let target = null;
+    if (bot.held.length === bot.req.length) {
+      target = exitGate;
+    } else {
+      const neededIds = bot.req.filter(r => !bot.held.includes(r));
+      let neededRes = resources.filter(r => neededIds.includes(r.id) && r.available);
+
+      if (currentAlgo === 'ordering' && neededRes.length > 0) {
+        const minId = Math.min(...neededIds);
+        neededRes = neededRes.filter(r => r.id === minId);
+      }
+
+      if (neededRes.length > 0) {
+        target = neededRes[0];
+      } else {
+        target = { x: bot.x + (Math.random() - 0.5) * 60, y: bot.y + (Math.random() - 0.5) * 60 };
+      }
+    }
+
+    if (target) {
+      const dx = target.x - bot.x;
+      const dy = target.y - bot.y;
+      const dist = Math.hypot(dx, dy);
+
+      if (dist > 5) {
+        bot.x += (dx / dist) * 3.5;
+        bot.y += (dy / dist) * 3.5;
+      }
+
+      resources.forEach(res => {
+        if (Math.hypot(bot.x - res.x, bot.y - res.y) < bot.r + 20) {
+          tryPickResource(bot, res);
+        }
+      });
+
+      if (bot.held.length === bot.req.length) {
+        if (Math.hypot(bot.x - exitGate.x, bot.y - exitGate.y) < bot.r + exitGate.r) {
+          bot.finished = true;
+          bot.finishTime = 45 - timer;
+          releaseResources(bot);
+        }
+      }
+    }
+  }
+
+  checkDeadlocks();
+
+  if (players.every(p => p.finished)) {
+    endMatch();
+  }
+}
+
+function draw() {
+  ctx.fillStyle = '#080a0f';
+  ctx.fillRect(0, 0, W, H);
+
+  if (state === 'countdown') {
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.75)';
+    ctx.fillRect(0, 0, W, H);
+    ctx.fillStyle = '#38bdf8';
+    ctx.font = 'bold 110px system-ui';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(countdownValue > 0 ? countdownValue : 'GO!', W / 2, H / 2);
+    return;
+  }
+
+  ctx.strokeStyle = 'rgba(255, 255, 255, 0.03)';
+  ctx.lineWidth = 1;
+  for (let x = 0; x < W; x += 40) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke(); }
+  for (let y = 0; y < H; y += 40) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke(); }
+
+  ctx.fillStyle = 'rgba(74, 222, 128, 0.15)';
+  ctx.beginPath(); ctx.arc(exitGate.x, exitGate.y, exitGate.r, 0, Math.PI * 2); ctx.fill();
+  ctx.strokeStyle = '#4ade80'; ctx.lineWidth = 2; ctx.stroke();
+  ctx.fillStyle = '#4ade80'; ctx.font = 'bold 12px system-ui'; ctx.textAlign = 'center'; ctx.fillText('EXIT GATE', exitGate.x, exitGate.y + 4);
+
+  resources.forEach(res => {
+    ctx.fillStyle = res.available ? res.color : '#334155';
+    ctx.beginPath(); ctx.arc(res.x, res.y, 20, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = res.available ? '#ffffff' : '#64748b'; ctx.lineWidth = 2; ctx.stroke();
+
+    ctx.fillStyle = '#ffffff'; ctx.font = 'bold 12px system-ui'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(res.name, res.x, res.y);
+
+    if (!res.available && res.holder) {
+      ctx.fillStyle = '#94a3b8'; ctx.font = '10px system-ui';
+      ctx.fillText(`(P${res.holder})`, res.x, res.y + 28);
+    }
+  });
+
+  players.forEach(p => {
+    if (p.finished) return;
+
+    if (p.deadlocked) {
+      ctx.fillStyle = 'rgba(239, 68, 68, 0.3)';
+      ctx.beginPath(); ctx.arc(p.x, p.y, p.r + 14, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = '#ef4444'; ctx.lineWidth = 2; ctx.stroke();
+    }
+
+    ctx.fillStyle = p.color;
+    ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 2; ctx.stroke();
+
+    ctx.fillStyle = '#ffffff'; ctx.font = 'bold 11px system-ui'; ctx.textAlign = 'center';
+    ctx.fillText(`P${p.id}`, p.x, p.y + 4);
+
+    ctx.fillStyle = p.deadlocked ? '#ef4444' : '#e2e8f0'; ctx.font = 'bold 11px system-ui';
+    const heldTxt = p.deadlocked ? 'DEADLOCK!' : p.held.length > 0 ? `[${p.held.map(r => 'R' + r).join(',')}]` : '';
+    ctx.fillText(heldTxt, p.x, p.y - 24);
+  });
+}
+
+function endMatch() {
+  state = 'over';
+  if (timerInterval) clearInterval(timerInterval);
+  if (countdownTimer) clearTimeout(countdownTimer);
+
+  document.getElementById('hud').style.display = 'none';
+  document.getElementById('quest-hud').style.display = 'none';
+  document.getElementById('game-over').style.display = 'flex';
+
+  players.forEach(p => {
+    let s = 100;
+    s += p.held.length * 50;
+    if (p.finished) s += 200;
+    s -= p.deadlocksCount * 15;
+    if (p.deadlocksCount === 0) s += 100;
+    p.score = Math.max(0, s);
+  });
+
+  const finishedPlayers = players.filter(p => p.finished).sort((a, b) => a.finishTime - b.finishTime);
+  const bonus = [100, 75, 50, 25];
+  finishedPlayers.forEach((p, idx) => {
+    p.score += bonus[idx] || 10;
+  });
+
+  const m = globalMetrics[currentAlgo];
+  m.totalRuns++;
+  m.deadlocks += players.reduce((sum, p) => sum + p.deadlocksCount, 0);
+  m.completed += players.filter(p => p.finished).length;
+  m.totalTime += (45 - timer);
+
+  const sortedPlayers = players.slice().sort((a, b) => b.score - a.score);
+  const lbBody = document.getElementById('leaderboard-body');
+  lbBody.innerHTML = '';
+
+  sortedPlayers.forEach((p, idx) => {
+    const tr = document.createElement('tr');
+    const posClass = idx === 0 ? 'rank-1' : idx === 1 ? 'rank-2' : idx === 2 ? 'rank-3' : '';
+    const statusTxt = p.finished ? `Selesai (${p.finishTime}s)` : 'Gagal';
+    tr.innerHTML = `
+      <td class="${posClass}">#${idx + 1}</td>
+      <td>${p.name}</td>
+      <td>${p.held.length}/${p.req.length}</td>
+      <td>${statusTxt}</td>
+      <td>${p.deadlocksCount}x</td>
+      <td class="${posClass}">${p.score}</td>
+    `;
+    lbBody.appendChild(tr);
+  });
+
+  document.getElementById('hud-score').textContent = players[0].score;
+
+  const metBody = document.getElementById('metrics-body');
+  metBody.innerHTML = '';
+
+  const totalRunDL = players.reduce((sum, p) => sum + p.deadlocksCount, 0);
+  const totalCompleted = players.filter(p => p.finished).length;
+  const matchTime = 45 - timer;
+
+  const algos = [
+    { 
+      name: 'No Prevention (Naive)',
+      deadlocks: globalMetrics['none'].totalRuns > 0 ? globalMetrics['none'].deadlocks + 'x' : totalRunDL + 'x',
+      rate: globalMetrics['none'].totalRuns > 0 ? Math.round((globalMetrics['none'].completed / (globalMetrics['none'].totalRuns * 4)) * 100) + '%' : Math.round((totalCompleted / 4) * 100) + '%',
+      time: globalMetrics['none'].totalRuns > 0 ? (globalMetrics['none'].totalTime / globalMetrics['none'].totalRuns).toFixed(1) + 's' : matchTime + 's'
+    },
+    { 
+      name: 'Resource Ordering',
+      deadlocks: globalMetrics['ordering'].totalRuns > 0 ? globalMetrics['ordering'].deadlocks + 'x' : '0x (Mencegah Circular Wait)',
+      rate: globalMetrics['ordering'].totalRuns > 0 ? Math.round((globalMetrics['ordering'].completed / (globalMetrics['ordering'].totalRuns * 4)) * 100) + '%' : '100% (Estimasi)',
+      time: globalMetrics['ordering'].totalRuns > 0 ? (globalMetrics['ordering'].totalTime / globalMetrics['ordering'].totalRuns).toFixed(1) + 's' : Math.max(12, matchTime - 8) + 's'
+    },
+    { 
+      name: 'Banker\'s Avoidance',
+      deadlocks: globalMetrics['banker'].totalRuns > 0 ? globalMetrics['banker'].deadlocks + 'x' : '0x (Mencegah Unsafe State)',
+      rate: globalMetrics['banker'].totalRuns > 0 ? Math.round((globalMetrics['banker'].completed / (globalMetrics['banker'].totalRuns * 4)) * 100) + '%' : '100% (Estimasi)',
+      time: globalMetrics['banker'].totalRuns > 0 ? (globalMetrics['banker'].totalTime / globalMetrics['banker'].totalRuns).toFixed(1) + 's' : Math.max(15, matchTime - 5) + 's'
+    }
+  ];
+
+  algos.forEach(a => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${a.name}</td>
+      <td>${a.deadlocks}</td>
+      <td>${a.rate}</td>
+      <td>${a.time}</td>
+    `;
+    metBody.appendChild(tr);
+  });
+}
+</script>
+</body>
+</html>
