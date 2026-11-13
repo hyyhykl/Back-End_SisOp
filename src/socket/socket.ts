@@ -2,7 +2,7 @@ import { Server as HttpServer } from 'http';
 import { Server, Socket } from 'socket.io';
 import { env } from '../config/env';
 import { setupLobbyHandlers } from './handlers/lobby.handler';
-import { SOCKET_EVENTS } from './events';
+import { setupStickBrawlHandlers } from './handlers/stickbrawl.handler';
 import { ServerToClientEvents, ClientToServerEvents, InterServerEvents, SocketData } from '../types';
 
 export type TypedServer = Server<ClientToServerEvents, ServerToClientEvents, InterServerEvents, SocketData>;
@@ -32,6 +32,7 @@ export function initSocket(httpServer: HttpServer): TypedServer {
 
     // Setup all handlers
     setupLobbyHandlers(io, socket);
+    setupStickBrawlHandlers(io, socket);
 
     socket.on('disconnect', (reason) => {
       console.log(`🔌 Client disconnected: ${socket.id} (${reason})`);

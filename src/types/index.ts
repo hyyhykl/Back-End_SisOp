@@ -92,6 +92,16 @@ export interface ServerToClientEvents {
   // Tournament events
   'tournament:starting': (data: { countdown: number; firstMinigame: number }) => void;
 
+  // Stick Brawl
+  'stickbrawl:state': (data: StickBrawlSnapshot) => void;
+  'stickbrawl:countdown': (data: StickBrawlCountdown) => void;
+  'stickbrawl:round_start': (data: StickBrawlRoundStart) => void;
+  'stickbrawl:tick': (data: StickBrawlTick) => void;
+  'stickbrawl:chest_result': (data: StickBrawlChestResult) => void;
+  'stickbrawl:queue_update': (data: StickBrawlChestSnapshot) => void;
+  'stickbrawl:round_end': (data: StickBrawlRoundEnd) => void;
+  'stickbrawl:game_end': (data: StickBrawlGameEnd) => void;
+
   // Toast/Error
   toast: (data: { type: 'error' | 'info' | 'success'; message: string }) => void;
 }
@@ -112,6 +122,14 @@ export interface ClientToServerEvents {
   // Gameplay (placeholder for minigame handlers)
   'game:input': (data: GameInputData) => void;
   'minigame:submit_score': (data: SubmitScoreData) => void;
+
+  // Stick Brawl
+  'stickbrawl:start': (data: { code: string; minigame?: number }) => void;
+  'stickbrawl:join': (data: { code: string }) => void;
+  'stickbrawl:sync': (data: { code: string }) => void;
+  'stickbrawl:run': (data: { code: string }) => void;
+  'stickbrawl:leave': (data: { code: string }) => void;
+  'stickbrawl:abort': (data: { code: string }) => void;
 }
 
 export interface InterServerEvents {
@@ -138,6 +156,104 @@ export interface SubmitScoreData {
   minigame: number;
   score: number;
   metrics: Record<string, unknown>;
+}
+
+// Stick Brawl
+export type StickBrawlRoundMode = 'race' | 'mutex' | 'semaphore';
+export type StickBrawlPhase = 'idle' | 'countdown' | 'running' | 'round_end' | 'finished';
+export type StickBrawlPlayerStatus = 'idle' | 'running' | 'queued' | 'at_chest' | 'stunned';
+
+export interface StickBrawlPlayerSnapshot {
+  userId: string;
+  name: string;
+  avatarColor: AvatarColor;
+  score: number;
+  chests: number;
+  explosions: number;
+  status: StickBrawlPlayerStatus;
+}
+
+export interface StickBrawlStanding extends StickBrawlPlayerSnapshot {
+  rank: number;
+}
+
+export interface StickBrawlChestSnapshot {
+  mode: StickBrawlRoundMode;
+  capacity: number;
+  holders: string[];
+  queue: string[];
+}
+
+export interface StickBrawlSnapshot {
+  roomCode: string;
+  round: number;
+  totalRounds: number;
+  mode: StickBrawlRoundMode | null;
+  phase: StickBrawlPhase;
+  timeLeft: number;
+  roundDuration: number;
+  players: StickBrawlPlayerSnapshot[];
+  standings: StickBrawlStanding[];
+  chest: StickBrawlChestSnapshot;
+}
+
+export interface StickBrawlCountdown {
+  secondsLeft: number;
+  nextRound: number;
+  mode: StickBrawlRoundMode | null;
+}
+
+export interface StickBrawlRoundStart {
+  round: number;
+  mode: StickBrawlRoundMode;
+  title: string;
+  rules: string;
+  duration: number;
+  timeLeft: number;
+  standings: StickBrawlStanding[];
+  players: StickBrawlPlayerSnapshot[];
+}
+
+export interface StickBrawlTick {
+  round: number;
+  timeLeft: number;
+  phase: StickBrawlPhase;
+}
+
+export interface StickBrawlChestResult {
+  outcome: 'success' | 'explosion' | 'queued' | 'blocked';
+  userIds: string[];
+  points: number;
+  message: string;
+  standings: StickBrawlStanding[];
+  chest: StickBrawlChestSnapshot;
+}
+
+export interface StickBrawlRoundEnd {
+  round: number;
+  mode: StickBrawlRoundMode;
+  reason: 'TIME_UP' | 'ABORTED';
+  timeLeft: number;
+  standings: StickBrawlStanding[];
+  players: StickBrawlPlayerSnapshot[];
+  message: string;
+}
+
+export interface StickBrawlGameEnd {
+  roomCode: string;
+  winnerUserId: string | null;
+  standings: StickBrawlStanding[];
+  reason: 'COMPLETED' | 'ABORTED';
+  message: string;
+}
+
+export interface StickBrawlFinalResult {
+  roomCode: string;
+  roomId: string;
+  winnerUserId: string | null;
+  standings: StickBrawlStanding[];
+  reason: 'COMPLETED' | 'ABORTED';
+  roundsPlayed: number;
 }
 
 // REST API Types

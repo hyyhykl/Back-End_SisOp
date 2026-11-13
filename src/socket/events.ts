@@ -11,6 +11,14 @@ export const SOCKET_EVENTS = {
     TOURNAMENT_START: 'tournament:start',
     GAME_INPUT: 'game:input',
     MINIGAME_SUBMIT_SCORE: 'minigame:submit_score',
+
+    // Stick Brawl
+    STICKBRAWL_START: 'stickbrawl:start',
+    STICKBRAWL_JOIN: 'stickbrawl:join',
+    STICKBRAWL_SYNC: 'stickbrawl:sync',
+    STICKBRAWL_RUN: 'stickbrawl:run',
+    STICKBRAWL_LEAVE: 'stickbrawl:leave',
+    STICKBRAWL_ABORT: 'stickbrawl:abort',
   },
 
   // Server -> Client
@@ -25,6 +33,16 @@ export const SOCKET_EVENTS = {
 
     // Tournament
     TOURNAMENT_STARTING: 'tournament:starting',
+
+    // Stick Brawl
+    STICKBRAWL_STATE: 'stickbrawl:state',
+    STICKBRAWL_COUNTDOWN: 'stickbrawl:countdown',
+    STICKBRAWL_ROUND_START: 'stickbrawl:round_start',
+    STICKBRAWL_TICK: 'stickbrawl:tick',
+    STICKBRAWL_CHEST_RESULT: 'stickbrawl:chest_result',
+    STICKBRAWL_QUEUE_UPDATE: 'stickbrawl:queue_update',
+    STICKBRAWL_ROUND_END: 'stickbrawl:round_end',
+    STICKBRAWL_GAME_END: 'stickbrawl:game_end',
 
     // Toast/Error
     TOAST: 'toast',
