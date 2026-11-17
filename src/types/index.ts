@@ -100,6 +100,7 @@ export interface ServerToClientEvents {
   'stickbrawl:chest_result': (data: StickBrawlChestResult) => void;
   'stickbrawl:queue_update': (data: StickBrawlChestSnapshot) => void;
   'stickbrawl:round_end': (data: StickBrawlRoundEnd) => void;
+  'stickbrawl:game_summary': (data: StickBrawlGameSummary) => void;
   'stickbrawl:game_end': (data: StickBrawlGameEnd) => void;
 
   // Toast/Error
@@ -236,6 +237,29 @@ export interface StickBrawlRoundEnd {
   timeLeft: number;
   standings: StickBrawlStanding[];
   players: StickBrawlPlayerSnapshot[];
+  message: string;
+}
+
+export interface StickBrawlGameScore {
+  userId: string;
+  name: string;
+  avatarColor: AvatarColor;
+  score: number;
+  roundScores: number[];
+  chests: number;
+  explosions: number;
+}
+
+export interface StickBrawlGameRanking extends StickBrawlGameScore {
+  rank: number;
+}
+
+export interface StickBrawlGameSummary {
+  roomCode: string;
+  game: number;
+  totalRounds: number;
+  players: StickBrawlGameScore[];
+  rankings: StickBrawlGameRanking[];
   message: string;
 }
 

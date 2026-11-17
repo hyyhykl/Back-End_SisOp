@@ -42,6 +42,7 @@ export const SOCKET_EVENTS = {
     STICKBRAWL_CHEST_RESULT: 'stickbrawl:chest_result',
     STICKBRAWL_QUEUE_UPDATE: 'stickbrawl:queue_update',
     STICKBRAWL_ROUND_END: 'stickbrawl:round_end',
+    STICKBRAWL_GAME_SUMMARY: 'stickbrawl:game_summary',
     STICKBRAWL_GAME_END: 'stickbrawl:game_end',
 
     // Toast/Error

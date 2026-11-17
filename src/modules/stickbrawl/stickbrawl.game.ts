@@ -7,6 +7,9 @@ import {
   StickBrawlChestSnapshot,
   StickBrawlFinalResult,
   StickBrawlGameEnd,
+  StickBrawlGameRanking,
+  StickBrawlGameScore,
+  StickBrawlGameSummary,
   StickBrawlPhase,
   StickBrawlPlayerSnapshot,
   StickBrawlPlayerStatus,
@@ -34,6 +37,8 @@ interface StickBrawlPlayer {
   queuedAt?: number;
   cooldownUntil: number;
   stunUntil: number;
+  roundScores: number[];
+  roundStartScore: number;
 }
 
 export class StickBrawlGame {
@@ -72,6 +77,8 @@ export class StickBrawlGame {
         status: 'idle',
         cooldownUntil: 0,
         stunUntil: 0,
+        roundScores: [],
+        roundStartScore: 0,
       });
     }
   }
@@ -299,6 +306,7 @@ export class StickBrawlGame {
       player.queuedAt = undefined;
       player.cooldownUntil = 0;
       player.stunUntil = 0;
+      player.roundStartScore = player.score;
     }
 
     const payload: StickBrawlRoundStart = {
@@ -475,6 +483,7 @@ export class StickBrawlGame {
     this.pendingRace.clear();
 
     for (const player of this.players.values()) {
+      player.roundScores[this.round - 1] = player.score - player.roundStartScore;
       player.status = 'idle';
       player.queuedAt = undefined;
     }
@@ -536,6 +545,8 @@ export class StickBrawlGame {
     const standings = this.standings();
     const winner = standings[0];
 
+    this.emit('stickbrawl:game_summary', this.gameSummary());
+
     const payload: StickBrawlGameEnd = {
       roomCode: this.roomCode,
       winnerUserId: winner?.userId ?? null,
@@ -569,6 +580,45 @@ export class StickBrawlGame {
           a.name.localeCompare(b.name)
       )
       .map((player, index) => ({ ...player, rank: index + 1 }));
+  }
+
+  private gameScores(): StickBrawlGameScore[] {
+    return [...this.players.values()].map((player) => ({
+      userId: player.userId,
+      name: player.name,
+      avatarColor: player.avatarColor,
+      score:
+        player.roundScores.length > 0
+          ? player.roundScores.reduce((total, points) => total + points, 0)
+          : player.score,
+      roundScores: [...player.roundScores],
+      chests: player.chests,
+      explosions: player.explosions,
+    }));
+  }
+
+  private gameSummary(): StickBrawlGameSummary {
+    const players = this.gameScores();
+    const rankings: StickBrawlGameRanking[] = players
+      .slice()
+      .sort(
+        (a, b) =>
+          b.score - a.score ||
+          b.chests - a.chests ||
+          a.name.localeCompare(b.name)
+      )
+      .map((player, index) => ({ ...player, rank: index + 1 }));
+
+    return {
+      roomCode: this.roomCode,
+      game: 1,
+      totalRounds: STICK_BRAWL_CONFIG.totalRounds,
+      players,
+      rankings,
+      message: rankings[0]
+        ? `${rankings[0].name} memimpin Game ke-1 dengan ${rankings[0].score} poin.`
+        : 'Rekap skor akhir Game ke-1.',
+    };
   }
 
   private toSnapshot(player: StickBrawlPlayer): StickBrawlPlayerSnapshot {
