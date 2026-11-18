@@ -11,6 +11,9 @@ export const SOCKET_EVENTS = {
     TOURNAMENT_START: 'tournament:start',
     GAME_INPUT: 'game:input',
     MINIGAME_SUBMIT_SCORE: 'minigame:submit_score',
+    MINIGAME_INPUT: 'minigame:input',
+    MINIGAME_STATE: 'minigame:state',
+    MINIGAME_COMPLETE: 'minigame:complete',
 
     // Stick Brawl
     STICKBRAWL_START: 'stickbrawl:start',
@@ -31,8 +34,15 @@ export const SOCKET_EVENTS = {
     ROOM_DISBANDED: 'room:disbanded',
     ROOM_KICKED: 'room:kicked',
 
+    // Room list (sinyal saja, tanpa data — frontend lalu GET /api/rooms)
+    ROOMS_UPDATED: 'rooms:updated',
+
     // Tournament
     TOURNAMENT_STARTING: 'tournament:starting',
+
+    // Minigame 1 (relay, host-authoritative)
+    MINIGAME_INPUT: 'minigame:input',
+    MINIGAME_STATE: 'minigame:state',
 
     // Stick Brawl
     STICKBRAWL_STATE: 'stickbrawl:state',

@@ -77,6 +77,29 @@ export interface GameHistory {
 }
 
 // Socket.io event types
+export interface MinigameInputData {
+  code: string;
+  minigame: number;
+  userId: string;
+  key: string;
+}
+
+export interface MinigameStateData {
+  code: string;
+  minigame: number;
+  [key: string]: unknown;
+}
+
+export interface MinigameCompleteData {
+  code: string;
+  minigame: number;
+  scores: Array<{
+    userId: string;
+    score: number;
+    metrics?: Record<string, unknown>;
+  }>;
+}
+
 export interface ServerToClientEvents {
   // Lobby events
   'room:state': (data: RoomState) => void;
@@ -91,6 +114,10 @@ export interface ServerToClientEvents {
 
   // Tournament events
   'tournament:starting': (data: { countdown: number; firstMinigame: number }) => void;
+
+  // Minigame 1 (relay, host-authoritative)
+  'minigame:input': (data: MinigameInputData) => void;
+  'minigame:state': (data: MinigameStateData) => void;
 
   // Stick Brawl
   'stickbrawl:state': (data: StickBrawlSnapshot) => void;
@@ -120,9 +147,12 @@ export interface ClientToServerEvents {
   // Tournament
   'tournament:start': (data: { code: string }) => void;
 
-  // Gameplay (placeholder for minigame handlers)
+  // Gameplay (placeholder / Minigame 1 relay)
   'game:input': (data: GameInputData) => void;
   'minigame:submit_score': (data: SubmitScoreData) => void;
+  'minigame:input': (data: MinigameInputData) => void;
+  'minigame:state': (data: MinigameStateData) => void;
+  'minigame:complete': (data: MinigameCompleteData) => void;
 
   // Stick Brawl
   'stickbrawl:start': (data: { code: string; minigame?: number }) => void;

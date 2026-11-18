@@ -17,6 +17,7 @@ export function createApp() {
   app.use(cors({
     origin: resolveCorsOrigin(),
     credentials: true,
+    allowedHeaders: ['Content-Type', 'Authorization', 'ngrok-skip-browser-warning'],
   }));
   app.use(express.json());
   app.use(express.urlencoded({ extended: true }));
