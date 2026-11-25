@@ -1,5 +1,6 @@
 import { Server, Socket } from 'socket.io';
 import { pool } from '../../config/db';
+import { PLAYERS_REQUIRED_MESSAGE, REQUIRED_PLAYERS, ROOM_MAX_PLAYERS } from '../../config/gameRules';
 import {
   getRoomIdByCode,
   getRoomPlayersWithUsers,
@@ -83,10 +84,10 @@ export function setupLobbyHandlers(io: LobbyServer, socket: LobbySocket) {
 
     // Check if room is full
     const playerCount = await getPlayerCount(roomId);
-    if (playerCount >= 4) {
+    if (playerCount >= ROOM_MAX_PLAYERS) {
       socket.emit(SOCKET_EVENTS.SERVER.TOAST, {
         type: 'error',
-        message: 'Room sudah penuh (maksimal 4 pemain)',
+        message: `Room sudah penuh (maksimal ${ROOM_MAX_PLAYERS} pemain)`,
       });
       return;
     }
@@ -125,7 +126,7 @@ export function setupLobbyHandlers(io: LobbyServer, socket: LobbySocket) {
         code: upperCode,
         name: '', // Will be filled from rooms table if needed
         status: 'waiting',
-        maxPlayers: 4,
+        maxPlayers: ROOM_MAX_PLAYERS,
       },
       players,
       me: { userId, isHost },
@@ -310,12 +311,12 @@ export function setupLobbyHandlers(io: LobbyServer, socket: LobbySocket) {
       return;
     }
 
-    // Check players > 1
+    // Setiap game butuh room penuh: minimal dan maksimal 4 pemain.
     const playerCount = await getPlayerCount(roomId);
-    if (playerCount < 2) {
+    if (playerCount !== REQUIRED_PLAYERS) {
       socket.emit(SOCKET_EVENTS.SERVER.TOAST, {
         type: 'error',
-        message: 'Minimal 2 pemain untuk memulai',
+        message: PLAYERS_REQUIRED_MESSAGE,
       });
       return;
     }

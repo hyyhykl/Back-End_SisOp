@@ -5,6 +5,7 @@ import { getUserById } from '../modules/auth/auth.service';
 import { setupLobbyHandlers } from './handlers/lobby.handler';
 import { setupMinigameHandlers } from './handlers/minigame.handler';
 import { setupStickBrawlHandlers } from './handlers/stickbrawl.handler';
+import { setupJellyfishHandlers } from './handlers/jellyfish.handler';
 import { ServerToClientEvents, ClientToServerEvents, InterServerEvents, SocketData } from '../types';
 
 export type TypedServer = Server<ClientToServerEvents, ServerToClientEvents, InterServerEvents, SocketData>;
@@ -58,6 +59,7 @@ export function initSocket(httpServer: HttpServer): TypedServer {
     setupLobbyHandlers(io, socket);
     setupMinigameHandlers(io, socket);
     setupStickBrawlHandlers(io, socket);
+    setupJellyfishHandlers(io, socket);
 
     socket.on('disconnect', (reason) => {
       console.log(`🔌 Client disconnected: ${socket.id} (${reason})`);

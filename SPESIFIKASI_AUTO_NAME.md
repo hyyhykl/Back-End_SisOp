@@ -7,6 +7,12 @@ localStorage.
 **Backend tidak perlu diubah.** `POST /api/auth/guest` sudah siap dan tetap
 memvalidasi nama (1–12 karakter) serta warna (pink/blue/orange/yellow).
 
+> **Update implementasi saat ini:** spesifikasi di bawah ini adalah desain lama.
+> Sekarang backend yang menetapkan identitas: warna hanya `merah`, `hijau`,
+> `biru`, `kuning` dan `name` selalu sama dengan nama warnanya. Warna diambil
+> dari kursi room saat join, lalu dipakai konsisten di lobby, game 1, game 2,
+> dan skor akhir.
+
 ---
 
 ## 1. ATURAN

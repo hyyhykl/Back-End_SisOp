@@ -1,6 +1,13 @@
+import type { PoolClient } from 'pg';
 import { pool } from '../../config/db';
 import { generateUniqueRoomCode } from '../../utils/roomCode';
 import {
+  AVATAR_COLORS,
+  COLOR_NAMES,
+  firstAvailableColor,
+} from '../../config/playerColors';
+import {
+  AvatarColor,
   Room,
   PublicRoomInfo,
   RoomDetailResponse,
@@ -8,6 +15,20 @@ import {
   CreateRoomRequest,
   CreateRoomResponse,
 } from '../../types';
+
+type QueryClient = PoolClient;
+
+/** Simpan warna + nama (turunan warna) sebagai identitas pemain di room ini. */
+async function assignPlayerColor(
+  client: QueryClient,
+  userId: string,
+  color: AvatarColor,
+): Promise<void> {
+  await client.query(
+    `UPDATE users SET name = $1, avatar_color = $2 WHERE id = $3`,
+    [COLOR_NAMES[color], color, userId],
+  );
+}
 
 export async function createRoom(data: CreateRoomRequest): Promise<CreateRoomResponse> {
   const { name, isPrivate, userId } = data;
@@ -39,11 +60,12 @@ export async function createRoom(data: CreateRoomRequest): Promise<CreateRoomRes
     );
     const room = roomResult.rows[0];
 
-    // Add host as first player
+    // Add host as first player (selalu kursi Merah)
     await client.query(
       `INSERT INTO room_players (room_id, user_id, is_host, is_ready) VALUES ($1, $2, true, true)`,
       [room.roomId, userId]
     );
+    await assignPlayerColor(client, userId, AVATAR_COLORS[0]);
 
     await client.query('COMMIT');
     return room;
@@ -113,31 +135,76 @@ export async function getRoomPlayersWithUsers(roomId: string): Promise<RoomPlaye
 }
 
 export async function addPlayerToRoom(roomId: string, userId: string): Promise<RoomPlayerWithUser | null> {
-  const result = await pool.query<RoomPlayerWithUser>(
-    // ON CONFLICT: jangan reset is_ready. Saat host membuka halaman room,
-    // baris room_players-nya sudah ada (dibuat createRoom dengan is_ready = true).
-    // Kalau di-reset, host dianggap "belum siap" selamanya karena host tidak
-    // punya tombol siap.
-    `INSERT INTO room_players (room_id, user_id, is_host, is_ready)
-     VALUES ($1, $2, false, false)
-     ON CONFLICT (room_id, user_id) DO UPDATE SET is_ready = room_players.is_ready
-     RETURNING id, room_id as "roomId", user_id as "userId", is_host as "isHost", is_ready as "isReady", joined_at as "joinedAt"`,
-    [roomId, userId]
-  );
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
 
-  if (result.rows.length === 0) return null;
+    // Serialisasi join agar tidak ada dua pemain yang dapat kursi warna sama.
+    await client.query(`SELECT id FROM rooms WHERE id = $1 FOR UPDATE`, [roomId]);
 
-  // Get user info
-  const userResult = await pool.query(
-    `SELECT name, avatar_color as "avatarColor" FROM users WHERE id = $1`,
-    [userId]
-  );
+    const existing = await client.query<RoomPlayerWithUser>(
+      `SELECT
+         rp.id,
+         rp.room_id as "roomId",
+         rp.user_id as "userId",
+         rp.is_host as "isHost",
+         rp.is_ready as "isReady",
+         rp.joined_at as "joinedAt",
+         u.name,
+         u.avatar_color as "avatarColor"
+       FROM room_players rp
+       JOIN users u ON rp.user_id = u.id
+       WHERE rp.room_id = $1 AND rp.user_id = $2`,
+      [roomId, userId]
+    );
 
-  return {
-    ...result.rows[0],
-    name: userResult.rows[0]?.name || '',
-    avatarColor: userResult.rows[0]?.avatarColor || 'pink',
-  };
+    if (existing.rows.length > 0) {
+      await client.query('COMMIT');
+      return existing.rows[0];
+    }
+
+    const usedColors = await client.query<{ avatarColor: AvatarColor }>(
+      `SELECT u.avatar_color as "avatarColor"
+       FROM room_players rp
+       JOIN users u ON rp.user_id = u.id
+       WHERE rp.room_id = $1`,
+      [roomId]
+    );
+    const userResult = await client.query<{ avatarColor: AvatarColor }>(
+      `SELECT avatar_color as "avatarColor" FROM users WHERE id = $1`,
+      [userId]
+    );
+
+    const color = firstAvailableColor(
+      usedColors.rows.map((row) => row.avatarColor),
+      userResult.rows[0]?.avatarColor,
+    );
+
+    // ON CONFLICT tidak dipakai lagi: baris sudah dicek di atas.
+    const result = await client.query<RoomPlayerWithUser>(
+      `INSERT INTO room_players (room_id, user_id, is_host, is_ready)
+       VALUES ($1, $2, false, false)
+       RETURNING id, room_id as "roomId", user_id as "userId", is_host as "isHost", is_ready as "isReady", joined_at as "joinedAt"`,
+      [roomId, userId]
+    );
+
+    await assignPlayerColor(client, userId, color);
+    await client.query('COMMIT');
+
+    const row = result.rows[0];
+    if (!row) return null;
+
+    return {
+      ...row,
+      name: COLOR_NAMES[color],
+      avatarColor: color,
+    };
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally {
+    client.release();
+  }
 }
 
 export async function removePlayerFromRoom(roomId: string, userId: string): Promise<boolean> {
@@ -197,7 +264,7 @@ export async function startTournament(roomId: string, hostId: string): Promise<b
 
 export async function checkAllPlayersReady(roomId: string): Promise<boolean> {
   // Host tidak pernah "siap" (tidak ada tombol siap untuk host), jadi yang
-  // dihitung hanya tamu. Minimal 2 pemain sudah dicek terpisah oleh handler.
+  // dihitung hanya tamu. Jumlah pemain (tepat 4) dicek terpisah oleh handler.
   const result = await pool.query(
     `SELECT COUNT(*) as total, COUNT(*) FILTER (WHERE is_ready = true) as ready
      FROM room_players WHERE room_id = $1 AND is_host = false`,

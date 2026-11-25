@@ -5,7 +5,7 @@
 
 WITH new_host AS (
   INSERT INTO users (name, avatar_color)
-  VALUES ('HostTest', 'pink')
+  VALUES ('HostTest', 'merah')
   RETURNING id
 ),
 new_room AS (

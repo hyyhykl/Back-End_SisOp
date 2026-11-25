@@ -38,8 +38,8 @@ Mengikuti ketentuan Final Project Sistem Operasi (Kategori B — Aplikasi Simula
 1. User mengakses halaman utama aplikasi.
 2. User membuat room baru atau bergabung ke room yang sudah ada.
 3. Setiap room memiliki **Invitation Code** (kode unik room) yang dapat dibagikan ke pemain lain.
-4. Kapasitas maksimum room adalah **4 player**.
-5. Game dapat mulai dimainkan setidaknya jika sudah terdapat **lebih dari 1 player** (>1 player) di dalam room.
+4. Kapasitas room adalah **tepat 4 player** (maksimal 4).
+5. Game hanya dapat dimulai jika room sudah terisi **4 player** dan semua tamu sudah siap; kurang dari 4 tidak bisa bermain.
 
 ### B. Flow Turnamen 3 Minigame
 Permainan berlangsung dalam format turnamen beruntun yang terdiri dari 3 minigame:

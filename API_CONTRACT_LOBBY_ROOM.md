@@ -3,6 +3,8 @@
 Versi: 1.0
 Cakupan: `game - 5 Buat Room`, `game - 5 Gabung Room`, `game - Lobi (Host)`, `game - Lobi (Tamu)`, Overlay Toast/Popup.
 
+> Catatan: warna pemain hanya `merah`, `hijau`, `biru`, `kuning`. Backend yang menetapkan `avatarColor` + `name` (nama = warna) saat join room, lalu nilai yang sama dipakai lobby, game 1, game 2, dan skor akhir.
+
 ---
 
 ## 1. REST API (HTTP)
@@ -18,7 +20,7 @@ Buat session tamu (dipanggil dari layar Loading).
 ```json
 {
   "name": "string (1-12 char)",
-  "avatarColor": "pink" | "blue" | "orange" | "yellow"
+  "avatarColor": "merah" | "hijau" | "biru" | "kuning"
 }
 ```
 
@@ -29,7 +31,7 @@ Buat session tamu (dipanggil dari layar Loading).
   "data": {
     "userId": "uuid",
     "name": "string",
-    "avatarColor": "pink"
+    "avatarColor": "merah"
   }
 }
 ```
@@ -266,14 +268,14 @@ socket.on('rooms:updated', () => loadRooms());
 | `room:join` | Room exists, `status=waiting`, `players < 4` | `ROOM_NOT_FOUND`, `ROOM_FULL`, `ROOM_PRIVATE` |
 | `room:set_ready` | User di room, bukan host | Ignore / `NOT_ALLOWED` |
 | `room:kick` | Sender = host, target ≠ host | `NOT_HOST`, `CANNOT_KICK_HOST` |
-| `tournament:start` | Sender = host, `players > 1`, semua `isReady=true` | `NOT_HOST`, `NOT_ENOUGH_PLAYERS`, `PLAYERS_NOT_READY` |
+| `tournament:start` | Sender = host, `players === 4`, semua tamu `isReady=true` | `NOT_HOST`, `NOT_ENOUGH_PLAYERS`, `PLAYERS_NOT_READY` |
 
 ---
 
 ## 4. TypeScript Types (Ringkas)
 
 ```ts
-type AvatarColor = 'pink' | 'blue' | 'orange' | 'yellow';
+type AvatarColor = 'merah' | 'hijau' | 'biru' | 'kuning';
 
 interface RoomPlayer {
   userId: string;

@@ -1,4 +1,5 @@
 import { Server, Socket } from 'socket.io';
+import { PLAYERS_REQUIRED_MESSAGE, REQUIRED_PLAYERS } from '../../config/gameRules';
 import {
   checkAllPlayersReady,
   getPlayerCount,
@@ -108,8 +109,8 @@ export function setupStickBrawlHandlers(io: StickBrawlServer, socket: StickBrawl
     }
 
     const playerCount = await getPlayerCount(roomId);
-    if (playerCount < 2 || playerCount > 4) {
-      toast('error', 'Stick Brawl membutuhkan 2-4 pemain.');
+    if (playerCount !== REQUIRED_PLAYERS) {
+      toast('error', PLAYERS_REQUIRED_MESSAGE);
       return;
     }
 

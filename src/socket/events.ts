@@ -14,6 +14,7 @@ export const SOCKET_EVENTS = {
     MINIGAME_INPUT: 'minigame:input',
     MINIGAME_STATE: 'minigame:state',
     MINIGAME_COMPLETE: 'minigame:complete',
+    MINIGAME_COMMAND: 'minigame:command',
 
     // Stick Brawl
     STICKBRAWL_START: 'stickbrawl:start',
@@ -22,6 +23,30 @@ export const SOCKET_EVENTS = {
     STICKBRAWL_RUN: 'stickbrawl:run',
     STICKBRAWL_LEAVE: 'stickbrawl:leave',
     STICKBRAWL_ABORT: 'stickbrawl:abort',
+
+    // Jellyfish / Deadlock Dungeon
+    JELLYFISH_JOIN: 'jellyfish:join',
+    JELLYFISH_START: 'jellyfish:start',
+    JELLYFISH_MOVE: 'jellyfish:move',
+    JELLYFISH_REQUEST_RESOURCE: 'jellyfish:request_resource',
+    JELLYFISH_RELEASE: 'jellyfish:release',
+    JELLYFISH_NEXT_ROUND: 'jellyfish:next_round',
+    JELLYFISH_LEAVE: 'jellyfish:leave',
+
+    // Legacy UI transition events (compatibility with current App.jsx).
+    // These are relayed only after host/membership validation.
+    JELLYFISH_BRIEFING_R1_SHOW: 'jellyfish:briefing_r1:show',
+    JELLYFISH_ROUND1_START: 'jellyfish:round1:start',
+    JELLYFISH_BRIEFING_R2_SHOW: 'jellyfish:briefing_r2:show',
+    JELLYFISH_ROUND2_START: 'jellyfish:round2:start',
+    JELLYFISH_BRIEFING_R3_SHOW: 'jellyfish:briefing_r3:show',
+    JELLYFISH_ROUND3_START: 'jellyfish:round3:start',
+    JELLYFISH_HASIL_SHOW: 'jellyfish:hasil:show',
+
+    // Overall final score (host-validated)
+    FINAL_SCORE_SHOW: 'final:score_show',
+    FINAL_LOBBY: 'final:lobby',
+    FINAL_PLAY_AGAIN: 'final:play_again',
   },
 
   // Server -> Client
@@ -54,6 +79,27 @@ export const SOCKET_EVENTS = {
     STICKBRAWL_ROUND_END: 'stickbrawl:round_end',
     STICKBRAWL_GAME_SUMMARY: 'stickbrawl:game_summary',
     STICKBRAWL_GAME_END: 'stickbrawl:game_end',
+
+    // Jellyfish / Deadlock Dungeon
+    JELLYFISH_STATE: 'jellyfish:state',
+    JELLYFISH_ROUND_START: 'jellyfish:round_start',
+    JELLYFISH_ROUND_END: 'jellyfish:round_end',
+    JELLYFISH_GAME_END: 'jellyfish:game_end',
+    JELLYFISH_REQUEST_RESULT: 'jellyfish:request_result',
+    JELLYFISH_DEADLOCK: 'jellyfish:deadlock',
+
+    // Legacy UI transition events (host-validated relay).
+    JELLYFISH_BRIEFING_R1_SHOW: 'jellyfish:briefing_r1:show',
+    JELLYFISH_ROUND1_START: 'jellyfish:round1:start',
+    JELLYFISH_BRIEFING_R2_SHOW: 'jellyfish:briefing_r2:show',
+    JELLYFISH_ROUND2_START: 'jellyfish:round2:start',
+    JELLYFISH_BRIEFING_R3_SHOW: 'jellyfish:briefing_r3:show',
+    JELLYFISH_ROUND3_START: 'jellyfish:round3:start',
+    JELLYFISH_HASIL_SHOW: 'jellyfish:hasil:show',
+
+    // Overall final score (host-validated relay)
+    FINAL_SCORE_SHOW: 'final:score_show',
+    FINAL_LOBBY: 'final:lobby',
 
     // Toast/Error
     TOAST: 'toast',

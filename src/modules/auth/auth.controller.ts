@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { createGuestUser } from './auth.service';
+import { AVATAR_COLORS, COLOR_NAMES } from '../../config/playerColors';
 import { AuthGuestRequest, ApiResponse } from '../../types';
 
 export async function createGuest(req: Request, res: Response) {
@@ -20,7 +21,7 @@ export async function createGuest(req: Request, res: Response) {
       } as ApiResponse<never>);
     }
 
-    const validColors: AuthGuestRequest['avatarColor'][] = ['pink', 'blue', 'orange', 'yellow'];
+    const validColors: AuthGuestRequest['avatarColor'][] = AVATAR_COLORS;
     if (!validColors.includes(avatarColor)) {
       return res.status(400).json({
         success: false,
@@ -28,7 +29,12 @@ export async function createGuest(req: Request, res: Response) {
       } as ApiResponse<never>);
     }
 
-    const user = await createGuestUser({ name: name.trim(), avatarColor });
+    // Nama tamu selalu mengikuti warna. Warna final ditetapkan ulang saat join
+    // room agar cada room punya Merah/Hijau/Biru/Kuning tepat satu kali.
+    const user = await createGuestUser({
+      name: COLOR_NAMES[avatarColor],
+      avatarColor,
+    });
 
     return res.status(201).json({
       success: true,

@@ -1,4 +1,4 @@
-export type AvatarColor = 'pink' | 'blue' | 'orange' | 'yellow';
+export type AvatarColor = 'merah' | 'hijau' | 'biru' | 'kuning';
 
 export interface User {
   id: string;
@@ -82,6 +82,48 @@ export interface MinigameInputData {
   minigame: number;
   userId: string;
   key: string;
+  /** 'punch' is the legacy value and the only gameplay input. */
+  type?: string;
+}
+
+/** Host UI commands; the backend owns the resulting authoritative state. */
+export interface MinigameCommandData {
+  code: string;
+  minigame: number;
+  type: 'sync' | 'start' | 'begin_round' | 'calculated' | 'summary' | 'result';
+  duration?: number;
+}
+
+export interface Minigame1FighterSnapshot {
+  step: number;
+  walking: boolean;
+}
+
+export interface Minigame1LogSnapshot {
+  time: string;
+  message: string;
+}
+
+export interface Minigame1SnapshotState {
+  phase: 'intro' | 'rule' | 'arena' | 'calculating' | 'result' | 'summary';
+  roundIndex: number;
+  timeLeft: number;
+  scores: Record<string, number>;
+  roundScores: Record<string, number[]>;
+  boomCount: number;
+  boomByRound: number[];
+  boomByPlayer: Record<string, number>;
+  toast: string;
+  inRing: string[];
+  boom: boolean;
+  heldSlots: string[];
+  waiting: string[];
+  stunned: string[];
+  fighters: Record<string, Minigame1FighterSnapshot>;
+  walkFrame: number;
+  timeUpActive: boolean;
+  eventLog: Minigame1LogSnapshot[];
+  logStep: number;
 }
 
 export interface MinigameStateData {
@@ -130,6 +172,27 @@ export interface ServerToClientEvents {
   'stickbrawl:game_summary': (data: StickBrawlGameSummary) => void;
   'stickbrawl:game_end': (data: StickBrawlGameEnd) => void;
 
+  // Jellyfish / Deadlock Dungeon
+  'jellyfish:state': (data: JellyfishSnapshot) => void;
+  'jellyfish:round_start': (data: JellyfishRoundStart) => void;
+  'jellyfish:round_end': (data: JellyfishRoundEnd) => void;
+  'jellyfish:game_end': (data: JellyfishGameEnd) => void;
+  'jellyfish:request_result': (data: JellyfishRequestResult) => void;
+  'jellyfish:deadlock': (data: JellyfishDeadlock) => void;
+
+  // Legacy UI transition relays (host-validated)
+  'jellyfish:briefing_r1:show': (data: JellyfishTransition) => void;
+  'jellyfish:round1:start': (data: JellyfishTransition) => void;
+  'jellyfish:briefing_r2:show': (data: JellyfishTransition) => void;
+  'jellyfish:round2:start': (data: JellyfishTransition) => void;
+  'jellyfish:briefing_r3:show': (data: JellyfishTransition) => void;
+  'jellyfish:round3:start': (data: JellyfishTransition) => void;
+  'jellyfish:hasil:show': (data: JellyfishTransition) => void;
+
+  // Overall final score (host-validated relay)
+  'final:score_show': (data: FinalScorePayload) => void;
+  'final:lobby': (data: JellyfishTransition) => void;
+
   // Toast/Error
   toast: (data: { type: 'error' | 'info' | 'success'; message: string }) => void;
 }
@@ -153,6 +216,7 @@ export interface ClientToServerEvents {
   'minigame:input': (data: MinigameInputData) => void;
   'minigame:state': (data: MinigameStateData) => void;
   'minigame:complete': (data: MinigameCompleteData) => void;
+  'minigame:command': (data: MinigameCommandData) => void;
 
   // Stick Brawl
   'stickbrawl:start': (data: { code: string; minigame?: number }) => void;
@@ -161,6 +225,29 @@ export interface ClientToServerEvents {
   'stickbrawl:run': (data: { code: string }) => void;
   'stickbrawl:leave': (data: { code: string }) => void;
   'stickbrawl:abort': (data: { code: string }) => void;
+
+  // Jellyfish / Deadlock Dungeon
+  'jellyfish:join': (data: JellyfishCodeData) => void;
+  'jellyfish:start': (data: JellyfishCodeData) => void;
+  'jellyfish:move': (data: JellyfishMoveData) => void;
+  'jellyfish:request_resource': (data: JellyfishRequestResourceData) => void;
+  'jellyfish:release': (data: JellyfishReleaseData) => void;
+  'jellyfish:next_round': (data: JellyfishCodeData) => void;
+  'jellyfish:leave': (data: JellyfishCodeData) => void;
+
+  // Legacy UI transition events emitted by the current frontend
+  'jellyfish:briefing_r1:show': (data: JellyfishTransition) => void;
+  'jellyfish:round1:start': (data: JellyfishTransition) => void;
+  'jellyfish:briefing_r2:show': (data: JellyfishTransition) => void;
+  'jellyfish:round2:start': (data: JellyfishTransition) => void;
+  'jellyfish:briefing_r3:show': (data: JellyfishTransition) => void;
+  'jellyfish:round3:start': (data: JellyfishTransition) => void;
+  'jellyfish:hasil:show': (data: JellyfishTransition) => void;
+
+  // Overall final score (host-only)
+  'final:score_show': (data: JellyfishTransition) => void;
+  'final:lobby': (data: JellyfishTransition) => void;
+  'final:play_again': (data: JellyfishTransition) => void;
 }
 
 export interface InterServerEvents {
@@ -308,6 +395,202 @@ export interface StickBrawlFinalResult {
   standings: StickBrawlStanding[];
   reason: 'COMPLETED' | 'ABORTED';
   roundsPlayed: number;
+}
+
+// Jellyfish / Deadlock Dungeon
+export type JellyfishPlayerKey = 'P1' | 'P2' | 'P3' | 'P4';
+export type JellyfishAlgorithm = 'no_prevention' | 'resource_ordering' | 'banker';
+export type JellyfishStatus =
+  | 'idle'
+  | 'briefing'
+  | 'playing'
+  | 'deadlock_recovery'
+  | 'round_end'
+  | 'game_end';
+export type JellyfishRequestReason =
+  | 'accepted'
+  | 'rejected_order'
+  | 'rejected_unsafe'
+  | 'already_owned'
+  | 'not_target'
+  | 'too_far'
+  | 'round_over'
+  | 'blocked';
+
+export interface JellyfishCodeData {
+  code: string;
+}
+
+export interface JellyfishTransition {
+  code: string;
+}
+
+/** Aggregated result shown on the final "peringkat keseluruhan" page. */
+export interface FinalScorePlayer {
+  userId: string;
+  name: string;
+  avatarColor: AvatarColor;
+  playerKey?: JellyfishPlayerKey;
+  rank: number;
+  game1Score: number;
+  game2Score: number;
+  totalScore: number;
+  game1Rounds: number[];
+  game2Rounds: number[];
+}
+
+export interface FinalScorePayload {
+  code: string;
+  players: FinalScorePlayer[];
+}
+
+export interface JellyfishMoveData extends JellyfishCodeData {
+  x: number;
+  y: number;
+}
+
+export interface JellyfishRequestResourceData extends JellyfishCodeData {
+  resourceId: number;
+}
+
+export interface JellyfishReleaseData extends JellyfishCodeData {}
+
+export interface JellyfishJellySnapshot {
+  id: number;
+  x: number;
+  y: number;
+  owner: string | null;
+  vx: number;
+  vy: number;
+}
+
+export interface JellyfishPlayerSnapshot {
+  userId: string;
+  playerKey: JellyfishPlayerKey;
+  name: string;
+  avatarColor: AvatarColor;
+  x: number;
+  y: number;
+  held: number[];
+  score: number;
+  exited: boolean;
+  deadlocksInvolved: number;
+  rejectedRequests: number;
+  connected: boolean;
+  wants: number | null;
+  blockedBy: string | null;
+}
+
+export interface JellyfishDeadlockState {
+  cycleIds: string[];
+  recoveryMsRemaining: number;
+}
+
+export interface JellyfishSnapshot {
+  code: string;
+  minigame: 2;
+  round: number;
+  algorithm: JellyfishAlgorithm | null;
+  status: JellyfishStatus;
+  timeLeft: number;
+  seed: number;
+  scenarioId: string;
+  jellies: JellyfishJellySnapshot[];
+  players: JellyfishPlayerSnapshot[];
+  deadlock: JellyfishDeadlockState | null;
+  finishOrder: string[];
+}
+
+export interface JellyfishRoundStart {
+  code: string;
+  round: number;
+  algorithm: JellyfishAlgorithm;
+  duration: number;
+  timeLeft: number;
+  seed: number;
+  scenarioId: string;
+}
+
+export interface JellyfishRequestResult {
+  code: string;
+  userId: string;
+  resourceId: number;
+  ok: boolean;
+  reason: JellyfishRequestReason;
+  message?: string;
+}
+
+export interface JellyfishDeadlock {
+  code: string;
+  cycleIds: string[];
+  recoveryMs: number;
+}
+
+export interface JellyfishRoundStanding {
+  userId: string;
+  playerKey: JellyfishPlayerKey;
+  name: string;
+  avatarColor: AvatarColor;
+  roundScore: number;
+  totalScore: number;
+  deadlocksInvolved: number;
+  rejectedRequests: number;
+  finished: boolean;
+  finishTimeSec: number | null;
+}
+
+export interface JellyfishRoundMetrics {
+  deadlocks: number;
+  finishedPlayers: number;
+  avgFinishTimeSec: number | null;
+  rejectedRequests: number;
+}
+
+export interface JellyfishRoundEnd {
+  code: string;
+  round: number;
+  algorithm: JellyfishAlgorithm;
+  reason: 'TIME_UP' | 'COMPLETE' | 'ABORTED';
+  standings: JellyfishRoundStanding[];
+  metrics: JellyfishRoundMetrics;
+}
+
+export interface JellyfishFinalStanding {
+  userId: string;
+  playerKey: JellyfishPlayerKey;
+  name: string;
+  avatarColor: AvatarColor;
+  r1: number;
+  r2: number;
+  r3: number;
+  total: number;
+  deadlocks: number;
+  rejectedRequests: number;
+  completedRounds: number;
+  rank: number;
+}
+
+export interface JellyfishAlgorithmMetrics extends JellyfishRoundMetrics {
+  algorithm: JellyfishAlgorithm;
+}
+
+export interface JellyfishGameEnd {
+  code: string;
+  minigame: 2;
+  finalStandings: JellyfishFinalStanding[];
+  roundResults: JellyfishRoundEnd[];
+  metricsByAlgorithm: JellyfishAlgorithmMetrics[];
+  reason: 'COMPLETED' | 'ABORTED';
+}
+
+export interface JellyfishFinalResult {
+  code: string;
+  roomId: string;
+  minigame: 2;
+  finalStandings: JellyfishFinalStanding[];
+  roundResults: JellyfishRoundEnd[];
+  metricsByAlgorithm: JellyfishAlgorithmMetrics[];
+  reason: 'COMPLETED' | 'ABORTED';
 }
 
 // REST API Types

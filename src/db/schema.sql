@@ -11,7 +11,7 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 CREATE TABLE users (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   name VARCHAR(50) NOT NULL,
-  avatar_color VARCHAR(20) DEFAULT 'pink', -- 'pink', 'blue', 'orange', 'yellow'
+  avatar_color VARCHAR(20) DEFAULT 'merah' CHECK (avatar_color IN ('merah', 'hijau', 'biru', 'kuning')),
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
