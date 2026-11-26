@@ -4,7 +4,7 @@ import { env } from './env';
 const poolConfig: PoolConfig = {
   connectionString: env.databaseUrl,
   ssl: {
-    rejectUnauthorized: false, // Required for Supabase
+    rejectUnauthorized: false, 
   },
   max: 10,
   idleTimeoutMillis: 30000,
@@ -13,7 +13,7 @@ const poolConfig: PoolConfig = {
 
 export const pool = new Pool(poolConfig);
 
-// Test connection on startup
+
 pool.query('SELECT NOW()', (err, res) => {
   if (err) {
     console.error('❌ Database connection failed:', err.message);
@@ -22,7 +22,7 @@ pool.query('SELECT NOW()', (err, res) => {
   }
 });
 
-// Graceful shutdown
+
 process.on('SIGINT', async () => {
   await pool.end();
   console.log('📴 Database pool closed');

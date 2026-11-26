@@ -1,5 +1,7 @@
 node_modules/
 dist/
 .env
-src/db/credential.txt
-.vscode/
+.env.*
+!.env.example
+*.log
+.DS_Store

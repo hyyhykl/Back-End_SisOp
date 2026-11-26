@@ -5,6 +5,7 @@ import { getUserById } from '../modules/auth/auth.service';
 import { setupLobbyHandlers } from './handlers/lobby.handler';
 import { setupMinigameHandlers } from './handlers/minigame.handler';
 import { setupStickBrawlHandlers } from './handlers/stickbrawl.handler';
+import { setupJellyfishHandlers } from './handlers/jellyfish.handler';
 import { ServerToClientEvents, ClientToServerEvents, InterServerEvents, SocketData } from '../types';
 
 export type TypedServer = Server<ClientToServerEvents, ServerToClientEvents, InterServerEvents, SocketData>;
@@ -12,8 +13,8 @@ export type TypedSocket = Socket<ClientToServerEvents, ServerToClientEvents, Int
 
 let io: TypedServer;
 
-// Development: allow SEMUA origin (URL ngrok berubah tiap restart).
-// Production: hanya origin dari CLIENT_URL.
+
+
 function resolveCorsOrigin(): boolean | string {
   return env.nodeEnv === 'development' ? true : env.clientUrl;
 }
@@ -54,10 +55,11 @@ export function initSocket(httpServer: HttpServer): TypedServer {
 
     void authenticateSocketFromHandshake(socket);
 
-    // Setup all handlers
+    
     setupLobbyHandlers(io, socket);
     setupMinigameHandlers(io, socket);
     setupStickBrawlHandlers(io, socket);
+    setupJellyfishHandlers(io, socket);
 
     socket.on('disconnect', (reason) => {
       console.log(`🔌 Client disconnected: ${socket.id} (${reason})`);

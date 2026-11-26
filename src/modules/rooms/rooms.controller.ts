@@ -49,7 +49,7 @@ export async function createRoomHandler(req: Request, res: Response) {
       } as ApiResponse<never>);
     }
 
-    // Validasi user masih ada di DB (misal: data dihapus manual / sesi kedaluwarsa)
+    
     const user = await getUserById(userId);
     if (!user) {
       return res.status(404).json({
@@ -63,7 +63,7 @@ export async function createRoomHandler(req: Request, res: Response) {
 
     const room = await createRoom({ name: name.trim(), isPrivate: !!isPrivate, userId });
 
-    // Room baru (dan room lama yang ikut dibubarkan) mengubah daftar publik
+    
     notifyRoomsUpdated();
 
     return res.status(201).json({

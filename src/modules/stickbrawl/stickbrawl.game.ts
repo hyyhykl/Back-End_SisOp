@@ -1,3 +1,4 @@
+import { REQUIRED_PLAYERS } from '../../config/gameRules';
 import type { TypedServer } from '../../socket/socket';
 import {
   AvatarColor,
@@ -194,13 +195,13 @@ export class StickBrawlGame {
     if (!wasRunning) return;
 
     const hostLeft = userId === this.hostId;
-    const notEnoughPlayers = this.players.size < 2;
+    const notEnoughPlayers = this.players.size < REQUIRED_PLAYERS;
 
     if (hostLeft || notEnoughPlayers) {
       this.abort(
         hostLeft
           ? 'Host keluar. Permainan dibatalkan.'
-          : 'Pemain kurang dari 2. Permainan dibatalkan.'
+          : `Pemain kurang dari ${REQUIRED_PLAYERS}. Permainan dibatalkan.`
       );
       return;
     }

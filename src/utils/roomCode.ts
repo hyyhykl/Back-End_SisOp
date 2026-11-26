@@ -1,4 +1,4 @@
-const CHARSET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // Exclude confusing chars: I, O, 1, 0
+const CHARSET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; 
 const CODE_LENGTH = 6;
 
 export function generateRoomCode(): string {

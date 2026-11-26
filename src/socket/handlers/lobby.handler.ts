@@ -1,5 +1,6 @@
 import { Server, Socket } from 'socket.io';
 import { pool } from '../../config/db';
+import { PLAYERS_REQUIRED_MESSAGE, REQUIRED_PLAYERS, ROOM_MAX_PLAYERS } from '../../config/gameRules';
 import {
   getRoomIdByCode,
   getRoomPlayersWithUsers,
@@ -19,8 +20,8 @@ import { ServerToClientEvents, ClientToServerEvents, InterServerEvents, SocketDa
 type LobbySocket = Socket<ClientToServerEvents, ServerToClientEvents, InterServerEvents, SocketData>;
 type LobbyServer = Server<ClientToServerEvents, ServerToClientEvents, InterServerEvents, SocketData>;
 
-// Store socketId per userId per room for kick functionality
-const userSocketMap = new Map<string, Map<string, string>>(); // roomCode -> (userId -> socketId)
+
+const userSocketMap = new Map<string, Map<string, string>>(); 
 
 function getUserSockets(roomCode: string): Map<string, string> {
   if (!userSocketMap.has(roomCode)) {
@@ -40,7 +41,7 @@ function removeUserSocket(roomCode: string, userId: string): void {
 }
 
 export function setupLobbyHandlers(io: LobbyServer, socket: LobbySocket) {
-  // Auth: Attach user data to socket + validasi user masih ada di DB
+  
   socket.on(SOCKET_EVENTS.CLIENT.AUTH, async (userId: string) => {
     socket.data.userId = userId;
 
@@ -50,7 +51,7 @@ export function setupLobbyHandlers(io: LobbyServer, socket: LobbySocket) {
       socket.data.avatarColor = user.avatarColor;
       console.log(`🔐 Socket authenticated: ${userId} (${user.name})`);
     } else {
-      // userId kedaluwarsa (misal data dihapus manual dari DB)
+      
       console.log(`⚠️ Socket auth FAILED (user not found): ${userId}`);
       socket.emit(SOCKET_EVENTS.SERVER.TOAST, {
         type: 'error',
@@ -59,7 +60,7 @@ export function setupLobbyHandlers(io: LobbyServer, socket: LobbySocket) {
     }
   });
 
-  // Join Room
+  
   socket.on(SOCKET_EVENTS.CLIENT.ROOM_JOIN, async ({ code }) => {
     const userId = socket.data.userId;
     if (!userId) {
@@ -81,24 +82,24 @@ export function setupLobbyHandlers(io: LobbyServer, socket: LobbySocket) {
       return;
     }
 
-    // Check if room is full
+    
     const playerCount = await getPlayerCount(roomId);
-    if (playerCount >= 4) {
+    if (playerCount >= ROOM_MAX_PLAYERS) {
       socket.emit(SOCKET_EVENTS.SERVER.TOAST, {
         type: 'error',
-        message: 'Room sudah penuh (maksimal 4 pemain)',
+        message: `Room sudah penuh (maksimal ${ROOM_MAX_PLAYERS} pemain)`,
       });
       return;
     }
 
-    // Check if already in room
+    
     const existing = await pool.query(
       `SELECT 1 FROM room_players WHERE room_id = $1 AND user_id = $2`,
       [roomId, userId]
     );
     const isRejoin = existing.rows.length > 0;
 
-    // Add player to room (or update if reconnecting)
+    
     const player = await addPlayerToRoom(roomId, userId);
     if (!player) {
       socket.emit(SOCKET_EVENTS.SERVER.TOAST, {
@@ -108,30 +109,30 @@ export function setupLobbyHandlers(io: LobbyServer, socket: LobbySocket) {
       return;
     }
 
-    // Join socket room
+    
     socket.join(upperCode);
 
-    // Track socket for kick functionality
+    
     getUserSockets(upperCode).set(userId, socket.id);
 
-    // Get full room state
+    
     const players = await getRoomPlayersWithUsers(roomId);
     const isHost = players.some(p => p.userId === userId && p.isHost);
 
-    // Send full state to joining player
+    
     const roomState: RoomState = {
       room: {
         roomId,
         code: upperCode,
-        name: '', // Will be filled from rooms table if needed
+        name: '', 
         status: 'waiting',
-        maxPlayers: 4,
+        maxPlayers: ROOM_MAX_PLAYERS,
       },
       players,
       me: { userId, isHost },
     };
 
-    // Get room name
+    
     const roomNameResult = await pool.query(
       `SELECT name FROM rooms WHERE id = $1`,
       [roomId]
@@ -140,11 +141,11 @@ export function setupLobbyHandlers(io: LobbyServer, socket: LobbySocket) {
 
     socket.emit(SOCKET_EVENTS.SERVER.ROOM_STATE, roomState);
 
-    // Broadcast to others (hanya pemain baru — rejoin jangan dobel)
+    
     if (!isRejoin) {
       socket.to(upperCode).emit(SOCKET_EVENTS.SERVER.ROOM_PLAYER_JOINED, player);
 
-      // Toast to room
+      
       io.to(upperCode).emit(SOCKET_EVENTS.SERVER.TOAST, {
         type: 'info',
         message: `${player.name} bergabung ke room`,
@@ -153,11 +154,11 @@ export function setupLobbyHandlers(io: LobbyServer, socket: LobbySocket) {
 
     console.log(`👤 ${player.name} joined room ${upperCode}`);
 
-    // Jumlah pemain berubah → daftar room publik ikut berubah
+    
     notifyRoomsUpdated();
   });
 
-  // Leave Room
+  
   socket.on(SOCKET_EVENTS.CLIENT.ROOM_LEAVE, async ({ code }) => {
     const startedAt = Date.now();
     const userId = socket.data.userId;
@@ -167,14 +168,14 @@ export function setupLobbyHandlers(io: LobbyServer, socket: LobbySocket) {
     const roomId = await getRoomIdByCode(upperCode);
     if (!roomId) return;
 
-    // Get player info before removing
+    
     const playerResult = await pool.query(
       `SELECT name FROM users WHERE id = $1`,
       [userId]
     );
     const playerName = playerResult.rows[0]?.name || 'Unknown';
 
-    // Check if host
+    
     const hostCheck = await pool.query(
       `SELECT host_id FROM rooms WHERE id = $1`,
       [roomId]
@@ -184,18 +185,18 @@ export function setupLobbyHandlers(io: LobbyServer, socket: LobbySocket) {
     await removePlayerFromRoom(roomId, userId);
     removeUserSocket(upperCode, userId);
 
-    // PENTING: emit dulu, baru socket.leave().
-    // Kalau socket.leave() dipanggil lebih dulu, host tidak akan menerima
-    // room:disbanded miliknya sendiri dan frontend yang menunggu event itu
-    // akan tersangkut di ruang tunggu.
+    
+    
+    
+    
     if (isHost) {
-      // Host left - disband room
+      
       await pool.query(`UPDATE rooms SET status = 'finished' WHERE id = $1`, [roomId]);
       io.to(upperCode).emit(SOCKET_EVENTS.SERVER.ROOM_DISBANDED, { reason: 'HOST_LEFT' });
-      // Clean up socket map
+      
       userSocketMap.delete(upperCode);
     } else {
-      // Regular player left
+      
       io.to(upperCode).emit(SOCKET_EVENTS.SERVER.ROOM_PLAYER_LEFT, {
         userId,
         name: playerName,
@@ -210,15 +211,15 @@ export function setupLobbyHandlers(io: LobbyServer, socket: LobbySocket) {
 
     console.log(`👋 ${playerName} left room ${upperCode}`);
 
-    // Ukur biaya DB di jalur keluar/bubarkan. Kalau angkanya ~2000 ms,
-    // penyebab delay ada di Supabase/pooler, bukan di frontend.
+    
+    
     console.log(`⏱ room:leave ${upperCode} selesai dalam ${Date.now() - startedAt} ms`);
 
-    // Host keluar → room bubar; tamu keluar → jumlah pemain berubah
+    
     notifyRoomsUpdated();
   });
 
-  // Set Ready (Tamu only)
+  
   socket.on(SOCKET_EVENTS.CLIENT.ROOM_SET_READY, async ({ code, isReady }) => {
     const userId = socket.data.userId;
     if (!userId) return;
@@ -227,16 +228,16 @@ export function setupLobbyHandlers(io: LobbyServer, socket: LobbySocket) {
     const roomId = await getRoomIdByCode(upperCode);
     if (!roomId) return;
 
-    // Verify not host
+    
     const hostCheck = await pool.query(
       `SELECT 1 FROM room_players WHERE room_id = $1 AND user_id = $2 AND is_host = true`,
       [roomId, userId]
     );
-    if (hostCheck.rows.length > 0) return; // Host cannot toggle ready
+    if (hostCheck.rows.length > 0) return; 
 
     await setPlayerReady(roomId, userId, isReady);
 
-    // Broadcast to room
+    
     io.to(upperCode).emit(SOCKET_EVENTS.SERVER.ROOM_PLAYER_READY, { userId, isReady });
 
     io.to(upperCode).emit(SOCKET_EVENTS.SERVER.TOAST, {
@@ -245,7 +246,7 @@ export function setupLobbyHandlers(io: LobbyServer, socket: LobbySocket) {
     });
   });
 
-  // Kick Player (Host only)
+  
   socket.on(SOCKET_EVENTS.CLIENT.ROOM_KICK, async ({ code, targetUserId }) => {
     const userId = socket.data.userId;
     if (!userId) return;
@@ -263,14 +264,14 @@ export function setupLobbyHandlers(io: LobbyServer, socket: LobbySocket) {
       return;
     }
 
-    // Notify kicked player
+    
     const targetSocketId = getUserSockets(upperCode).get(targetUserId);
     if (targetSocketId) {
       io.to(targetSocketId).emit(SOCKET_EVENTS.SERVER.ROOM_KICKED, { reason: 'KICKED_BY_HOST' });
       removeUserSocket(upperCode, targetUserId);
     }
 
-    // Get target name for broadcast
+    
     const targetResult = await pool.query(`SELECT name FROM users WHERE id = $1`, [targetUserId]);
     const targetName = targetResult.rows[0]?.name || 'Unknown';
 
@@ -288,7 +289,7 @@ export function setupLobbyHandlers(io: LobbyServer, socket: LobbySocket) {
     notifyRoomsUpdated();
   });
 
-  // Start Tournament (Host only)
+  
   socket.on(SOCKET_EVENTS.CLIENT.TOURNAMENT_START, async ({ code }) => {
     const userId = socket.data.userId;
     if (!userId) return;
@@ -297,7 +298,7 @@ export function setupLobbyHandlers(io: LobbyServer, socket: LobbySocket) {
     const roomId = await getRoomIdByCode(upperCode);
     if (!roomId) return;
 
-    // Verify host
+    
     const hostCheck = await pool.query(
       `SELECT host_id FROM rooms WHERE id = $1`,
       [roomId]
@@ -310,17 +311,17 @@ export function setupLobbyHandlers(io: LobbyServer, socket: LobbySocket) {
       return;
     }
 
-    // Check players > 1
+    
     const playerCount = await getPlayerCount(roomId);
-    if (playerCount < 2) {
+    if (playerCount !== REQUIRED_PLAYERS) {
       socket.emit(SOCKET_EVENTS.SERVER.TOAST, {
         type: 'error',
-        message: 'Minimal 2 pemain untuk memulai',
+        message: PLAYERS_REQUIRED_MESSAGE,
       });
       return;
     }
 
-    // Check all ready
+    
     const allReady = await checkAllPlayersReady(roomId);
     if (!allReady) {
       socket.emit(SOCKET_EVENTS.SERVER.TOAST, {
@@ -339,30 +340,30 @@ export function setupLobbyHandlers(io: LobbyServer, socket: LobbySocket) {
       return;
     }
 
-    // Broadcast tournament starting to all players
+    
     io.to(upperCode).emit(SOCKET_EVENTS.SERVER.TOURNAMENT_STARTING, {
-      countdown: 3,
+      countdown: 1,
       firstMinigame: 1,
     });
 
-    // Status room jadi 'starting' → hilang dari daftar publik
+    
     notifyRoomsUpdated();
   });
 
-  // Handle disconnect
+  
   socket.on('disconnect', async () => {
     const userId = socket.data.userId;
     if (!userId) return;
 
     let roomsChanged = false;
 
-    // Find which room this user was in
+    
     for (const [roomCode, userMap] of userSocketMap.entries()) {
       if (userMap.get(userId) === socket.id) {
         const roomId = await getRoomIdByCode(roomCode);
         if (roomId) {
           roomsChanged = true;
-          // Check if host
+          
           const hostCheck = await pool.query(
             `SELECT host_id FROM rooms WHERE id = $1`,
             [roomId]
@@ -389,16 +390,16 @@ export function setupLobbyHandlers(io: LobbyServer, socket: LobbySocket) {
             });
           }
         } else {
-          // Room sudah tidak ada di DB — bersihin mapping stale saja
+          
           removeUserSocket(roomCode, userId);
         }
-        // CATATAN: sengaja TIDAK ada `break` — user bisa tercatat di
-        // beberapa room (misal create room baru tanpa leave).
-        // Semua mapping yang cocok dengan socket ini harus dibersihin.
+        
+        
+        
       }
     }
 
-    // Room bubar / jumlah pemain berubah karena disconnect
+    
     if (roomsChanged) notifyRoomsUpdated();
   });
 }

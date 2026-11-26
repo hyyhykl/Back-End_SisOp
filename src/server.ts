@@ -24,10 +24,10 @@ function startServer() {
   const app = createApp();
   const httpServer = createServer(app);
 
-  // Initialize Socket.io
+  
   initSocket(httpServer);
 
-  // Start HTTP server
+  
   httpServer.listen(env.port, () => {
     console.log(`
 🚀 Kernel Clash Arcade Server
@@ -38,13 +38,13 @@ function startServer() {
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
     `);
 
-    // Bersihkan room gaib saat server start, lalu tiap 30 menit
+    
     runRoomCleanup();
     const cleanupTimer = setInterval(runRoomCleanup, 30 * 60 * 1000);
     cleanupTimer.unref();
   });
 
-  // Graceful shutdown
+  
   const shutdown = (signal: string) => {
     console.log(`\n📴 Received ${signal}. Shutting down gracefully...`);
     httpServer.close(() => {
@@ -52,7 +52,7 @@ function startServer() {
       process.exit(0);
     });
 
-    // Force close after 10 seconds
+    
     setTimeout(() => {
       console.error('❌ Forced shutdown after timeout');
       process.exit(1);
